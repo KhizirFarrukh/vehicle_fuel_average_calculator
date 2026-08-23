@@ -1,1 +1,16 @@
 include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  language:
+    # Implicit downcasts from dynamic hide real bugs in map/JSON handling,
+    # which this app does a lot of.
+    strict-casts: true
+  errors:
+    # Reading a BuildContext after an await is a bug, not a style note.
+    use_build_context_synchronously: error
+
+linter:
+  rules:
+    - avoid_empty_else
+    - avoid_relative_lib_imports
+    - prefer_single_quotes

@@ -1,7 +1,7 @@
 name: vehicle_fuel_average_calculator
-description: "A new Flutter project."
+description: "Track fuel economy, refuelling history and running cost across multiple vehicles."
 publish_to: 'none'
-version: 0.1.0
+version: 0.2.0
 
 environment:
   sdk: ^3.6.0
@@ -9,6 +9,18 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+
+  # Local relational storage. No code generation involved: schema is plain SQL
+  # and models carry hand-written toMap/fromMap.
+  sqflite: ^2.3.0
+  # Desktop (Windows/Linux) backend for sqflite. Registered in main.dart.
+  sqflite_common_ffi: ^2.3.0
+
+  path: ^1.9.0
+  path_provider: ^2.1.0
+
+  # ChangeNotifier wiring.
+  provider: ^6.1.0
 
 dev_dependencies:
   flutter_test:
