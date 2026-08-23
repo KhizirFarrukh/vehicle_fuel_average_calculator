@@ -7,6 +7,7 @@ import '../../state/garage_controller.dart';
 import '../../state/settings_controller.dart';
 import '../widgets/app_card.dart';
 import '../widgets/vehicle_card.dart';
+import 'comparison_screen.dart';
 import 'quick_calculator_screen.dart';
 import 'settings_screen.dart';
 import 'vehicle_detail_screen.dart';
@@ -25,6 +26,16 @@ class HomeScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Garage'),
         actions: [
+          if (garage.allVehicles.length >= 2)
+            IconButton(
+              tooltip: 'Compare vehicles',
+              icon: const Icon(Icons.compare_arrows),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const ComparisonScreen(),
+                ),
+              ),
+            ),
           IconButton(
             tooltip: 'Quick calculator',
             icon: const Icon(Icons.calculate_outlined),
