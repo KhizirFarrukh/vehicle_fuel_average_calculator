@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/formatters.dart';
 import '../../core/theme.dart';
 import '../../core/unit_formatter.dart';
+import '../../data/backup_service.dart';
 import '../../domain/fuel_calculator.dart';
 import '../../models/fuel_entry.dart';
 import '../../models/fuel_stats.dart';
@@ -14,6 +16,7 @@ import '../widgets/app_card.dart';
 import '../widgets/charts.dart';
 import '../widgets/entry_tile.dart';
 import '../widgets/stat_tile.dart';
+import 'csv_import_screen.dart';
 import 'entry_form_screen.dart';
 import 'vehicle_form_screen.dart';
 
@@ -68,6 +71,7 @@ class VehicleDetailScreen extends StatelessWidget {
                 ),
               ),
             ),
+            _DataMenu(vehicle: vehicle),
           ],
           bottom: const TabBar(
             tabs: [
@@ -101,6 +105,56 @@ class VehicleDetailScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// Per-vehicle CSV import and export.
+class _DataMenu extends StatelessWidget {
+  const _DataMenu({required this.vehicle});
+
+  final Vehicle vehicle;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<String>(
+      tooltip: 'Import or export',
+      onSelected: (value) => _onSelected(context, value),
+      itemBuilder: (context) => const [
+        PopupMenuItem(value: 'import', child: Text('Import from CSV')),
+        PopupMenuItem(value: 'export', child: Text('Export this log as CSV')),
+      ],
+    );
+  }
+
+  Future<void> _onSelected(BuildContext context, String value) async {
+    if (value == 'import') {
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => CsvImportScreen(vehicle: vehicle),
+        ),
+      );
+      return;
+    }
+
+    final backup = context.read<BackupService>();
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final path = await backup.exportCsvFile(vehicleId: vehicle.id);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Saved to $path'),
+          action: SnackBarAction(
+            label: 'Copy path',
+            onPressed: () => Clipboard.setData(ClipboardData(text: path)),
+          ),
+          duration: const Duration(seconds: 8),
+        ),
+      );
+    } catch (error) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Export failed: $error')),
+      );
+    }
   }
 }
 

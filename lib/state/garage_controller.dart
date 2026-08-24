@@ -208,6 +208,27 @@ class GarageController extends ChangeNotifier {
     return id;
   }
 
+  /// Bulk insert for CSV import. Reloads and recomputes once at the end rather
+  /// than per row, which for a few hundred imported fill-ups is the difference
+  /// between instant and visibly slow.
+  ///
+  /// Returns the number of entries written.
+  Future<int> addEntries(int vehicleId, List<FuelEntry> entries) async {
+    if (entries.isEmpty) return 0;
+
+    final now = DateTime.now();
+    await _entryDao.insertMany([
+      for (final entry in entries)
+        entry.copyWith(vehicleId: vehicleId, createdAt: now, updatedAt: now),
+    ]);
+
+    await _reloadEntries(vehicleId);
+    await _vehicleDao.touch(vehicleId);
+    _bumpVehicleTimestamp(vehicleId, now);
+    notifyListeners();
+    return entries.length;
+  }
+
   Future<void> updateEntry(FuelEntry entry) async {
     if (entry.id == null) return;
     await _entryDao.update(entry.copyWith(updatedAt: DateTime.now()));

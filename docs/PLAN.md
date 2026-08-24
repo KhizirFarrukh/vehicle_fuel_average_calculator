@@ -89,13 +89,20 @@ pass; Tier 2/3 are recorded for later.
 | I17 | **Prefill-from-last-entry** on the refuel form | Cuts a forecourt entry to about three taps. |
 | I18 | **Any-two-of-three cost entry** (volume / price-per-litre / total — type two, the third computes) | Pumps show different combinations in different countries. |
 
-### Tier 2 — designed for, not built yet
+### Tier 2
+
+Shipped after the initial pass:
+
+| # | Idea | Notes |
+|---|------|-------|
+| I20 | **Multi-vehicle comparison screen** | Ranks the garage on six measures. Bars are drawn from the *canonical* value so "longer" means the same thing in every display unit. |
+| I23 | **CSV import** | RFC 4180 parser, headers matched by alias so exports from other fuel apps usually work unchanged. Source units and date order are asked, never guessed. Nothing is written until the parse has been shown. |
+
+Still open:
 
 - I19 Service & maintenance log with distance/date reminders (oil, tyres, insurance).
-- I20 Multi-vehicle comparison screen (economy and cost/km side by side).
 - I21 Home-screen widget / quick-add shortcut.
 - I22 Fuel-station price memory and "cheapest nearby" notes.
-- I23 CSV **import** (from Fuelly / Drivvo / aCar exports).
 - I24 Photo of the pump receipt attached to an entry.
 - I25 Localisation (`flutter_localizations` + ARB files).
 
