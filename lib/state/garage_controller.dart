@@ -1,10 +1,13 @@
 import 'package:flutter/foundation.dart';
 
 import '../data/fuel_entry_dao.dart';
+import '../data/service_dao.dart';
 import '../data/vehicle_dao.dart';
 import '../domain/fuel_calculator.dart';
+import '../domain/service_planner.dart';
 import '../models/fuel_entry.dart';
 import '../models/fuel_stats.dart';
+import '../models/service_record.dart';
 import '../models/vehicle.dart';
 
 /// Owns the garage: every vehicle, every refuelling entry, and the statistics
@@ -17,11 +20,14 @@ class GarageController extends ChangeNotifier {
   GarageController({
     required VehicleDao vehicleDao,
     required FuelEntryDao entryDao,
+    required ServiceDao serviceDao,
   })  : _vehicleDao = vehicleDao,
-        _entryDao = entryDao;
+        _entryDao = entryDao,
+        _serviceDao = serviceDao;
 
   final VehicleDao _vehicleDao;
   final FuelEntryDao _entryDao;
+  final ServiceDao _serviceDao;
 
   bool _loading = true;
   String? _error;
@@ -30,6 +36,7 @@ class GarageController extends ChangeNotifier {
   List<Vehicle> _vehicles = const [];
   final Map<int, List<FuelEntry>> _entriesByVehicle = {};
   final Map<int, VehicleStats> _statsByVehicle = {};
+  final Map<int, List<ServiceRecord>> _servicesByVehicle = {};
 
   bool get isLoading => _loading;
   String? get error => _error;
@@ -87,11 +94,15 @@ class GarageController extends ChangeNotifier {
     try {
       final vehicles = await _vehicleDao.getAll(includeArchived: true);
       final entries = await _entryDao.getAll();
+      final services = await _serviceDao.getAll();
 
       _vehicles = vehicles;
       _entriesByVehicle
         ..clear()
         ..addAll(_group(entries, vehicles));
+      _servicesByVehicle
+        ..clear()
+        ..addAll(_groupServices(services, vehicles));
       _recomputeAll();
       _error = null;
     } catch (e) {
@@ -116,6 +127,23 @@ class GarageController extends ChangeNotifier {
     }
     for (final list in grouped.values) {
       list.sort(FuelEntry.compareByOdometer);
+    }
+    return grouped;
+  }
+
+  Map<int, List<ServiceRecord>> _groupServices(
+    List<ServiceRecord> records,
+    List<Vehicle> vehicles,
+  ) {
+    final grouped = <int, List<ServiceRecord>>{
+      for (final vehicle in vehicles)
+        if (vehicle.id != null) vehicle.id!: <ServiceRecord>[],
+    };
+    for (final record in records) {
+      grouped.putIfAbsent(record.vehicleId, () => <ServiceRecord>[]).add(record);
+    }
+    for (final list in grouped.values) {
+      list.sort(ServiceRecord.compareByDateDesc);
     }
     return grouped;
   }
@@ -152,6 +180,7 @@ class GarageController extends ChangeNotifier {
     if (saved != null) {
       _vehicles = [saved, ..._vehicles];
       _entriesByVehicle[id] = <FuelEntry>[];
+      _servicesByVehicle[id] = <ServiceRecord>[];
       _recompute(id);
     }
     notifyListeners();
@@ -176,6 +205,8 @@ class GarageController extends ChangeNotifier {
     _vehicles = _vehicles.where((v) => v.id != id).toList(growable: false);
     _entriesByVehicle.remove(id);
     _statsByVehicle.remove(id);
+    // The database cascade takes these; the cache has to be told.
+    _servicesByVehicle.remove(id);
     notifyListeners();
   }
 
@@ -257,6 +288,86 @@ class GarageController extends ChangeNotifier {
       for (final vehicle in _vehicles)
         if (vehicle.id == vehicleId) vehicle.copyWith(updatedAt: now) else vehicle,
     ];
+  }
+
+  // -------------------------------------------------------------------------
+  // Service records (I19)
+  // -------------------------------------------------------------------------
+
+  /// Newest first.
+  List<ServiceRecord> servicesFor(int? vehicleId) {
+    if (vehicleId == null) return const [];
+    return _servicesByVehicle[vehicleId] ?? const [];
+  }
+
+  /// The odometer reminders are measured against: the highest fuel reading on
+  /// record, falling back to the vehicle's starting odometer.
+  ///
+  /// Service records carry their own odometer too, and a vehicle whose only
+  /// odometer history is a service visit should still get distance reminders.
+  double? currentOdometerFor(int? vehicleId) {
+    if (vehicleId == null) return null;
+
+    double? highest = statsFor(vehicleId).lastOdometerKm;
+
+    for (final record in servicesFor(vehicleId)) {
+      final odometer = record.odometer;
+      if (odometer == null) continue;
+      if (highest == null || odometer > highest) highest = odometer;
+    }
+
+    return highest ?? vehicleById(vehicleId)?.initialOdometer;
+  }
+
+  List<ServiceReminder> remindersFor(int? vehicleId) {
+    if (vehicleId == null) return const [];
+    return ServicePlanner.remindersFor(
+      servicesFor(vehicleId),
+      currentOdometerKm: currentOdometerFor(vehicleId),
+    );
+  }
+
+  /// Reminders worth surfacing unprompted — overdue or due soon.
+  List<ServiceReminder> serviceAlertsFor(int? vehicleId) {
+    if (vehicleId == null) return const [];
+    return ServicePlanner.attentionNeeded(
+      servicesFor(vehicleId),
+      currentOdometerKm: currentOdometerFor(vehicleId),
+    );
+  }
+
+  double serviceCostFor(int? vehicleId) =>
+      ServicePlanner.totalCost(servicesFor(vehicleId));
+
+  Future<int> addService(ServiceRecord record) async {
+    final now = DateTime.now();
+    final id = await _serviceDao.insert(
+      record.copyWith(createdAt: now, updatedAt: now),
+    );
+    await _reloadServices(record.vehicleId);
+    notifyListeners();
+    return id;
+  }
+
+  Future<void> updateService(ServiceRecord record) async {
+    if (record.id == null) return;
+    await _serviceDao.update(record.copyWith(updatedAt: DateTime.now()));
+    await _reloadServices(record.vehicleId);
+    notifyListeners();
+  }
+
+  Future<void> deleteService(ServiceRecord record) async {
+    final id = record.id;
+    if (id == null) return;
+    await _serviceDao.delete(id);
+    await _reloadServices(record.vehicleId);
+    notifyListeners();
+  }
+
+  Future<void> _reloadServices(int vehicleId) async {
+    final records = await _serviceDao.getForVehicle(vehicleId);
+    _servicesByVehicle[vehicleId] = List<ServiceRecord>.of(records)
+      ..sort(ServiceRecord.compareByDateDesc);
   }
 
   /// Called after a backup restore, which rewrites everything underneath us.

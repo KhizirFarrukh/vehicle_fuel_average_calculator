@@ -386,8 +386,9 @@ class _DataCardState extends State<_DataCard> {
         SnackBar(
           content: Text(
             'Restored ${result.vehiclesAdded} '
-            '${result.vehiclesAdded == 1 ? 'vehicle' : 'vehicles'} and '
-            '${result.entriesAdded} fill-ups.',
+            '${result.vehiclesAdded == 1 ? 'vehicle' : 'vehicles'}, '
+            '${result.entriesAdded} fill-ups and '
+            '${result.servicesAdded} service records.',
           ),
         ),
       );

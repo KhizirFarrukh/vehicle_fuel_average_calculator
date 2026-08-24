@@ -15,7 +15,9 @@ class AppDatabase {
   AppDatabase._(this.db);
 
   /// Bump this and add a case to [_upgrade] whenever the schema changes.
-  static const int schemaVersion = 1;
+  ///
+  /// v2 added `service_records`.
+  static const int schemaVersion = 2;
   static const String fileName = 'fuel_tracker.db';
 
   final Database db;
@@ -138,17 +140,49 @@ class AppDatabase {
       )
     ''');
 
+    // v2. Shared with _upgrade so a fresh install and a migrated one cannot
+    // end up with different schemas — the classic way migrations rot.
+    for (final statement in _serviceRecordsV2) {
+      batch.execute(statement);
+    }
+
     await batch.commit(noResult: true);
   }
 
+  /// Added in schema v2 (I19).
+  static const List<String> _serviceRecordsV2 = [
+    '''
+      CREATE TABLE service_records (
+        id                INTEGER PRIMARY KEY AUTOINCREMENT,
+        vehicle_id        INTEGER NOT NULL,
+        type              TEXT    NOT NULL DEFAULT 'other',
+        title             TEXT,
+        performed_at      INTEGER NOT NULL,
+        odometer          REAL,
+        cost              REAL    NOT NULL DEFAULT 0,
+        notes             TEXT,
+        next_due_odometer REAL,
+        next_due_at       INTEGER,
+        created_at        INTEGER NOT NULL,
+        updated_at        INTEGER NOT NULL,
+        FOREIGN KEY (vehicle_id) REFERENCES vehicles (id) ON DELETE CASCADE
+      )
+    ''',
+    '''
+      CREATE INDEX idx_service_vehicle_date
+        ON service_records (vehicle_id, performed_at)
+    ''',
+  ];
+
   static Future<void> _upgrade(Database db, int from, int to) async {
-    // Migrations run in order; each case moves the schema forward by one
-    // version. Nothing to do yet at version 1.
+    // Migrations run in order; each case moves the schema forward by exactly
+    // one version, so a database at any older version arrives intact.
     for (var version = from + 1; version <= to; version++) {
       switch (version) {
-        // case 2:
-        //   await db.execute('ALTER TABLE vehicles ADD COLUMN ...');
-        //   break;
+        case 2:
+          for (final statement in _serviceRecordsV2) {
+            await db.execute(statement);
+          }
         default:
           break;
       }

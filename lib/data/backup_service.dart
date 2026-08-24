@@ -7,8 +7,10 @@ import 'package:path_provider/path_provider.dart';
 import '../core/formatters.dart';
 import '../models/app_settings.dart';
 import '../models/fuel_entry.dart';
+import '../models/service_record.dart';
 import '../models/vehicle.dart';
 import 'fuel_entry_dao.dart';
+import 'service_dao.dart';
 import 'settings_dao.dart';
 import 'vehicle_dao.dart';
 
@@ -25,11 +27,13 @@ class RestoreResult {
   const RestoreResult({
     required this.vehiclesAdded,
     required this.entriesAdded,
+    required this.servicesAdded,
     required this.settingsRestored,
   });
 
   final int vehiclesAdded;
   final int entriesAdded;
+  final int servicesAdded;
   final bool settingsRestored;
 }
 
@@ -41,19 +45,25 @@ class BackupService {
   const BackupService({
     required VehicleDao vehicles,
     required FuelEntryDao entries,
+    required ServiceDao services,
     required SettingsDao settings,
   })  : _vehicles = vehicles,
         _entries = entries,
+        _services = services,
         _settings = settings;
 
   final VehicleDao _vehicles;
   final FuelEntryDao _entries;
+  final ServiceDao _services;
   final SettingsDao _settings;
 
   /// Identifies our own backups, so a stray JSON file is rejected with a clear
   /// message rather than a cast error.
   static const String formatId = 'vehicle_fuel_average_calculator.backup';
-  static const int formatVersion = 1;
+
+  /// v2 added the per-vehicle `services` array. v1 backups still restore —
+  /// they simply carry no maintenance history.
+  static const int formatVersion = 2;
 
   // -------------------------------------------------------------------------
   // Export
@@ -62,11 +72,19 @@ class BackupService {
   Future<Map<String, Object?>> buildBackup() async {
     final vehicles = await _vehicles.getAll(includeArchived: true);
     final allEntries = await _entries.getAll();
+    final allServices = await _services.getAll();
     final settings = await _settings.readAll();
 
     final grouped = <int, List<FuelEntry>>{};
     for (final entry in allEntries) {
       grouped.putIfAbsent(entry.vehicleId, () => <FuelEntry>[]).add(entry);
+    }
+
+    final groupedServices = <int, List<ServiceRecord>>{};
+    for (final record in allServices) {
+      groupedServices
+          .putIfAbsent(record.vehicleId, () => <ServiceRecord>[])
+          .add(record);
     }
 
     return {
@@ -82,6 +100,11 @@ class BackupService {
             'entries': [
               for (final entry in grouped[vehicle.id] ?? const <FuelEntry>[])
                 entry.toMap(),
+            ],
+            'services': [
+              for (final record
+                  in groupedServices[vehicle.id] ?? const <ServiceRecord>[])
+                record.toMap(),
             ],
           },
       ],
@@ -227,14 +250,16 @@ class BackupService {
     }
 
     if (mode == RestoreMode.replace) {
-      // Entries first: the cascade would take them anyway, but being explicit
+      // Children first: the cascade would take them anyway, but being explicit
       // keeps this correct even if foreign keys are ever off.
       await _entries.deleteAll();
+      await _services.deleteAll();
       await _vehicles.deleteAll();
     }
 
     var vehiclesAdded = 0;
     var entriesAdded = 0;
+    var servicesAdded = 0;
 
     for (final raw in rawVehicles) {
       if (raw is! Map) continue;
@@ -245,19 +270,32 @@ class BackupService {
       vehiclesAdded++;
 
       final rawEntries = map['entries'];
-      if (rawEntries is! List) continue;
-
-      final entries = <FuelEntry>[];
-      for (final rawEntry in rawEntries) {
-        if (rawEntry is! Map) continue;
-        final entryMap = Map<String, Object?>.from(rawEntry);
-        // Re-point at the id the vehicle actually received.
-        entryMap['vehicle_id'] = newId;
-        entries.add(FuelEntry.fromMap(entryMap));
+      if (rawEntries is List) {
+        final entries = <FuelEntry>[];
+        for (final rawEntry in rawEntries) {
+          if (rawEntry is! Map) continue;
+          final entryMap = Map<String, Object?>.from(rawEntry);
+          // Re-point at the id the vehicle actually received.
+          entryMap['vehicle_id'] = newId;
+          entries.add(FuelEntry.fromMap(entryMap));
+        }
+        await _entries.insertMany(entries);
+        entriesAdded += entries.length;
       }
 
-      await _entries.insertMany(entries);
-      entriesAdded += entries.length;
+      // Absent in v1 backups, which is not an error.
+      final rawServices = map['services'];
+      if (rawServices is List) {
+        final services = <ServiceRecord>[];
+        for (final rawService in rawServices) {
+          if (rawService is! Map) continue;
+          final serviceMap = Map<String, Object?>.from(rawService);
+          serviceMap['vehicle_id'] = newId;
+          services.add(ServiceRecord.fromMap(serviceMap));
+        }
+        await _services.insertMany(services);
+        servicesAdded += services.length;
+      }
     }
 
     var settingsRestored = false;
@@ -281,6 +319,7 @@ class BackupService {
     return RestoreResult(
       vehiclesAdded: vehiclesAdded,
       entriesAdded: entriesAdded,
+      servicesAdded: servicesAdded,
       settingsRestored: settingsRestored,
     );
   }

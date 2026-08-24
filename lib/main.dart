@@ -5,6 +5,7 @@ import 'app.dart';
 import 'data/app_database.dart';
 import 'data/backup_service.dart';
 import 'data/fuel_entry_dao.dart';
+import 'data/service_dao.dart';
 import 'data/settings_dao.dart';
 import 'data/vehicle_dao.dart';
 import 'state/garage_controller.dart';
@@ -21,12 +22,14 @@ Future<void> main() async {
 
   final vehicleDao = VehicleDao(database.db);
   final entryDao = FuelEntryDao(database.db);
+  final serviceDao = ServiceDao(database.db);
   final settingsDao = SettingsDao(database.db);
 
   final settingsController = SettingsController(settingsDao);
   final garageController = GarageController(
     vehicleDao: vehicleDao,
     entryDao: entryDao,
+    serviceDao: serviceDao,
   );
 
   // Load before the first frame, so the app never flashes an empty garage at
@@ -42,6 +45,7 @@ Future<void> main() async {
           create: (_) => BackupService(
             vehicles: vehicleDao,
             entries: entryDao,
+            services: serviceDao,
             settings: settingsDao,
           ),
         ),
