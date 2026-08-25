@@ -123,6 +123,7 @@ class _Body extends StatelessWidget {
               vehicle: vehicle,
               stats: garage.statsFor(vehicle.id),
               units: units,
+              serviceAlerts: garage.serviceAlertsFor(vehicle.id),
               onTap: () => _openVehicle(context, vehicle),
             ),
             const SizedBox(height: 12),

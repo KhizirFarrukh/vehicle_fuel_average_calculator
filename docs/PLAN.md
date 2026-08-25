@@ -95,12 +95,12 @@ Shipped after the initial pass:
 
 | # | Idea | Notes |
 |---|------|-------|
+| I19 | **Service & maintenance log** | Schema v2. Records what was done, when, at what odometer and cost, with next-due by distance, by date or both. Whichever limit bites first decides the status. Overdue items surface on the garage card without opening the vehicle. |
 | I20 | **Multi-vehicle comparison screen** | Ranks the garage on six measures. Bars are drawn from the *canonical* value so "longer" means the same thing in every display unit. |
 | I23 | **CSV import** | RFC 4180 parser, headers matched by alias so exports from other fuel apps usually work unchanged. Source units and date order are asked, never guessed. Nothing is written until the parse has been shown. |
 
 Still open:
 
-- I19 Service & maintenance log with distance/date reminders (oil, tyres, insurance).
 - I21 Home-screen widget / quick-add shortcut.
 - I22 Fuel-station price memory and "cheapest nearby" notes.
 - I24 Photo of the pump receipt attached to an entry.

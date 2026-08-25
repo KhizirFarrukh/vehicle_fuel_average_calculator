@@ -7,17 +7,21 @@ import '../../core/theme.dart';
 import '../../core/unit_formatter.dart';
 import '../../data/backup_service.dart';
 import '../../domain/fuel_calculator.dart';
+import '../../domain/service_planner.dart';
 import '../../models/fuel_entry.dart';
 import '../../models/fuel_stats.dart';
+import '../../models/service_record.dart';
 import '../../models/vehicle.dart';
 import '../../state/garage_controller.dart';
 import '../../state/settings_controller.dart';
 import '../widgets/app_card.dart';
 import '../widgets/charts.dart';
 import '../widgets/entry_tile.dart';
+import '../widgets/service_tile.dart';
 import '../widgets/stat_tile.dart';
 import 'csv_import_screen.dart';
 import 'entry_form_screen.dart';
+import 'service_form_screen.dart';
 import 'vehicle_form_screen.dart';
 
 /// One vehicle: its numbers, its refuelling history, and its charts.
@@ -53,8 +57,12 @@ class VehicleDetailScreen extends StatelessWidget {
         if (point.entry.id != null) point.entry.id!: point,
     };
 
+    final services = garage.servicesFor(vehicleId);
+    final reminders = garage.remindersFor(vehicleId);
+    final serviceCost = garage.serviceCostFor(vehicleId);
+
     return DefaultTabController(
-      length: 3,
+      length: 4,
       child: Scaffold(
         appBar: AppBar(
           title: Text(
@@ -74,25 +82,26 @@ class VehicleDetailScreen extends StatelessWidget {
             _DataMenu(vehicle: vehicle),
           ],
           bottom: const TabBar(
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
             tabs: [
               Tab(text: 'Overview'),
               Tab(text: 'History'),
               Tab(text: 'Charts'),
+              Tab(text: 'Service'),
             ],
           ),
         ),
-        floatingActionButton: FloatingActionButton.extended(
-          onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => EntryFormScreen(vehicle: vehicle),
-            ),
-          ),
-          icon: const Icon(Icons.local_gas_station),
-          label: const Text('Log fill-up'),
-        ),
+        floatingActionButton: _Fab(vehicle: vehicle),
         body: TabBarView(
           children: [
-            _OverviewTab(vehicle: vehicle, stats: stats, units: units),
+            _OverviewTab(
+              vehicle: vehicle,
+              stats: stats,
+              units: units,
+              alerts: garage.serviceAlertsFor(vehicleId),
+              serviceCost: serviceCost,
+            ),
             _HistoryTab(
               vehicle: vehicle,
               entries: entries,
@@ -101,12 +110,52 @@ class VehicleDetailScreen extends StatelessWidget {
               units: units,
             ),
             _ChartsTab(stats: stats, units: units),
+            _ServiceTab(
+              vehicle: vehicle,
+              records: services,
+              reminders: reminders,
+              totalCost: serviceCost,
+              units: units,
+            ),
           ],
         ),
       ),
     );
   }
 }
+
+/// The action button follows the visible tab: fill-ups on the fuel tabs,
+/// maintenance on the service tab.
+class _Fab extends StatelessWidget {
+  const _Fab({required this.vehicle});
+
+  final Vehicle vehicle;
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = DefaultTabController.of(context);
+
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        final isService = controller.index == _serviceTabIndex;
+        return FloatingActionButton.extended(
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => isService
+                  ? ServiceFormScreen(vehicle: vehicle)
+                  : EntryFormScreen(vehicle: vehicle),
+            ),
+          ),
+          icon: Icon(isService ? Icons.build : Icons.local_gas_station),
+          label: Text(isService ? 'Log service' : 'Log fill-up'),
+        );
+      },
+    );
+  }
+}
+
+const int _serviceTabIndex = 3;
 
 /// Per-vehicle CSV import and export.
 class _DataMenu extends StatelessWidget {
@@ -167,11 +216,15 @@ class _OverviewTab extends StatelessWidget {
     required this.vehicle,
     required this.stats,
     required this.units,
+    required this.alerts,
+    required this.serviceCost,
   });
 
   final Vehicle vehicle;
   final VehicleStats stats;
   final UnitFormatter units;
+  final List<ServiceReminder> alerts;
+  final double serviceCost;
 
   @override
   Widget build(BuildContext context) {
@@ -198,13 +251,38 @@ class _OverviewTab extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
       children: [
         _HeadlineCard(stats: stats, units: units),
+        if (alerts.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          ServiceAlertBanner(
+            alerts: alerts,
+            onTap: () =>
+                DefaultTabController.of(context).animateTo(_serviceTabIndex),
+          ),
+        ],
         const SectionHeader('Running costs'),
         StatGrid(
           children: [
             StatTile(
-              label: 'Total spent',
+              label: 'Fuel spent',
               value: units.money(stats.totalSpent),
               icon: Icons.payments_outlined,
+            ),
+            StatTile(
+              label: 'Maintenance',
+              value: units.money(serviceCost),
+              icon: Icons.build_outlined,
+            ),
+            StatTile(
+              label: 'All-in per ${units.distanceSymbol}',
+              value: units.costPerDistance(
+                ServicePlanner.runningCostPerKm(
+                  fuelCost: stats.totalSpent,
+                  serviceCost: serviceCost,
+                  distanceKm: stats.trackedDistanceKm ?? 0,
+                ),
+              ),
+              caption: 'Fuel and maintenance',
+              icon: Icons.receipt_long_outlined,
             ),
             StatTile(
               label: 'Cost per ${units.distanceSymbol}',
@@ -552,6 +630,102 @@ class _HistoryTab extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Service (I19)
+// ---------------------------------------------------------------------------
+
+class _ServiceTab extends StatelessWidget {
+  const _ServiceTab({
+    required this.vehicle,
+    required this.records,
+    required this.reminders,
+    required this.totalCost,
+    required this.units,
+  });
+
+  final Vehicle vehicle;
+  final List<ServiceRecord> records;
+  final List<ServiceReminder> reminders;
+  final double totalCost;
+  final UnitFormatter units;
+
+  @override
+  Widget build(BuildContext context) {
+    if (records.isEmpty) {
+      return EmptyState(
+        icon: Icons.build_outlined,
+        title: 'No service history',
+        message: 'Log an oil change, a set of tyres or an insurance renewal, '
+            'and this app will tell you when the next one is due — by '
+            'distance, by date, or both.',
+        action: FilledButton.icon(
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => ServiceFormScreen(vehicle: vehicle),
+            ),
+          ),
+          icon: const Icon(Icons.add),
+          label: const Text('Log the first service'),
+        ),
+      );
+    }
+
+    void edit(ServiceRecord record) {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => ServiceFormScreen(vehicle: vehicle, existing: record),
+        ),
+      );
+    }
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+      children: [
+        StatGrid(
+          children: [
+            StatTile(
+              label: 'Spent on maintenance',
+              value: units.money(totalCost),
+              icon: Icons.payments_outlined,
+            ),
+            StatTile(
+              label: 'Records',
+              value: records.length.toString(),
+              caption: reminders.isEmpty
+                  ? 'None being tracked'
+                  : '${reminders.length} tracked',
+              icon: Icons.build_outlined,
+            ),
+          ],
+        ),
+        if (reminders.isNotEmpty) ...[
+          const SectionHeader(
+            'Coming up',
+            subtitle: 'Whichever limit is reached first.',
+          ),
+          for (final reminder in reminders) ...[
+            ReminderTile(
+              reminder: reminder,
+              units: units,
+              onTap: () => edit(reminder.record),
+            ),
+            const SizedBox(height: 10),
+          ],
+        ],
+        const SectionHeader('History'),
+        for (final record in records) ...[
+          ServiceRecordTile(
+            record: record,
+            units: units,
+            onTap: () => edit(record),
+          ),
+          const SizedBox(height: 10),
+        ],
+      ],
     );
   }
 }

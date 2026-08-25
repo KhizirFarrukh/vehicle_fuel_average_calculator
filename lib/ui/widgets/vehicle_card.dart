@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../../core/formatters.dart';
 import '../../core/unit_formatter.dart';
+import '../../domain/service_planner.dart';
 import '../../models/fuel_stats.dart';
 import '../../models/vehicle.dart';
 import 'app_card.dart';
+import 'service_tile.dart';
 
 /// A vehicle in the garage list, with its headline average.
 class VehicleCard extends StatelessWidget {
@@ -14,6 +16,7 @@ class VehicleCard extends StatelessWidget {
     required this.stats,
     required this.units,
     required this.onTap,
+    this.serviceAlerts = const [],
     this.onLongPress,
   });
 
@@ -21,6 +24,11 @@ class VehicleCard extends StatelessWidget {
   final VehicleStats stats;
   final UnitFormatter units;
   final VoidCallback onTap;
+
+  /// Overdue or nearly-due maintenance, surfaced here so it is visible without
+  /// opening the vehicle.
+  final List<ServiceReminder> serviceAlerts;
+
   final VoidCallback? onLongPress;
 
   @override
@@ -113,6 +121,10 @@ class VehicleCard extends StatelessWidget {
               ),
             ],
           ),
+          if (serviceAlerts.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            ServiceAlertBanner(alerts: serviceAlerts),
+          ],
           if (!stats.hasEconomy && stats.hasEntries) ...[
             const SizedBox(height: 10),
             Text(

@@ -27,9 +27,15 @@ storage uses `sqflite`, and web would need `sqflite_common_ffi_web`. See
   odometer readings at the time.
 - **A history of fuel averages**, with cost per kilometre, best and worst
   stretches, and charts of economy, fuel price and monthly spend.
+- **A service log** per vehicle — oil, tyres, insurance, anything — with
+  next-due reminders by distance, by date, or both. Overdue items show on the
+  garage list without opening the vehicle.
+- **Side-by-side comparison** of every vehicle on economy, running cost and
+  spend.
 - **Units of your choosing** — km/L, L/100 km, mpg (US) or mpg (imperial),
   kilometres or miles, litres or gallons, and your own currency symbol.
-- **Backup and export** to JSON or CSV.
+- **Backup and export** to JSON or CSV, and **CSV import** that reads exports
+  from other fuel apps.
 - **The original quick calculator**, still one tap away.
 
 ## How the average is worked out
