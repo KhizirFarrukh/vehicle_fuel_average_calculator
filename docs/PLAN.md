@@ -97,14 +97,20 @@ Shipped after the initial pass:
 |---|------|-------|
 | I19 | **Service & maintenance log** | Schema v2. Records what was done, when, at what odometer and cost, with next-due by distance, by date or both. Whichever limit bites first decides the status. Overdue items surface on the garage card without opening the vehicle. |
 | I20 | **Multi-vehicle comparison screen** | Ranks the garage on six measures. Bars are drawn from the *canonical* value so "longer" means the same thing in every display unit. |
+| I22 | **Station price memory** | Recent stations offered as taps on the entry form; per-station spend on the overview. The cheapest-station ranking is windowed to 180 days and needs two stations with two visits each, because pump prices move and an all-time average compares the calendar as much as the forecourt. |
 | I23 | **CSV import** | RFC 4180 parser, headers matched by alias so exports from other fuel apps usually work unchanged. Source units and date order are asked, never guessed. Nothing is written until the parse has been shown. |
 
-Still open:
+### Still open — and why each is blocked here
 
-- I21 Home-screen widget / quick-add shortcut.
-- I22 Fuel-station price memory and "cheapest nearby" notes.
-- I24 Photo of the pump receipt attached to an entry.
-- I25 Localisation (`flutter_localizations` + ARB files).
+Every remaining item needs something this environment cannot provide. They are
+left undone deliberately rather than half-built:
+
+| # | Idea | Blocker |
+|---|------|---------|
+| I21 | Home-screen widget / quick-add | Needs an Android AppWidget (Kotlin) and iOS WidgetKit (Swift) target, or the `home_widget` plugin. Substantial native code that cannot be built or run here. |
+| I24 | Receipt photos on an entry | Needs `image_picker` plus file storage and per-platform camera permissions. A new dependency whose version solve cannot be checked. |
+| I25 | Localisation | Needs `flutter_localizations`, which pins `intl` — the exact dependency §4 avoids — and touches every string in ~12,000 lines. Worth doing only once the app compiles and runs. |
+| I26–I28 | Cloud sync, CO₂, forecasting | Tier 3; unchanged. |
 
 ### Tier 3 — speculative
 
@@ -293,8 +299,13 @@ trip-meter disagreeing with the odometer delta by >5 % (I11).
 
 ### What shipped
 
-30 files under `lib/`, 5 test suites, ~8,000 lines. Every Tier 1 idea (I1–I18)
-is implemented. Tier 2 and Tier 3 remain open.
+37 files under `lib/`, 7 test suites, ~12,000 lines. Every Tier 1 idea
+(I1–I18) is implemented, plus four Tier 2 items: the service log (I19),
+vehicle comparison (I20), station price memory (I22) and CSV import (I23).
+
+Four pure-Dart engines carry the logic worth testing, none of them importing
+Flutter: `fuel_calculator.dart`, `service_planner.dart`,
+`station_analyzer.dart` and `csv_import_service.dart`.
 
 Two scope calls made along the way, both to avoid dependencies that could not
 be verified here:
@@ -325,6 +336,11 @@ run. What *was* done instead:
 Expect a handful of analyzer nits on the first run. Nothing structural should
 be wrong, but **run `flutter pub get && flutter analyze && flutter test`
 before trusting any of it**.
+
+Work stopped at I22 for this reason: everything still open needs either a new
+dependency whose version solve cannot be checked here, or native platform code
+that cannot be built here. Adding more unverified code past this point costs
+more than it returns — the next useful step is to run the toolchain.
 
 ---
 
