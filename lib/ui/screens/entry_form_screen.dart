@@ -6,6 +6,7 @@ import '../../core/theme.dart';
 import '../../core/unit_formatter.dart';
 import '../../core/validators.dart';
 import '../../domain/fuel_calculator.dart';
+import '../../domain/station_analyzer.dart';
 import '../../models/fuel_entry.dart';
 import '../../models/vehicle.dart';
 import '../../state/garage_controller.dart';
@@ -363,6 +364,12 @@ class _EntryFormScreenState extends State<EntryFormScreen> {
                 hint: 'Shell, Main Street',
               ),
             ),
+            // I22 — most refuelling happens at a handful of places, so offer
+            // them rather than making the user retype one.
+            _StationSuggestions(
+              names: StationAnalyzer.knownNames(entries),
+              onSelected: (name) => setState(() => _station.text = name),
+            ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _notes,
@@ -573,6 +580,35 @@ class _EntryFormScreenState extends State<EntryFormScreen> {
     await context.read<GarageController>().deleteEntry(entry);
     if (!mounted) return;
     Navigator.of(context).pop();
+  }
+}
+
+/// Recently used stations, offered as taps (I22).
+class _StationSuggestions extends StatelessWidget {
+  const _StationSuggestions({required this.names, required this.onSelected});
+
+  final List<String> names;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    if (names.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          for (final name in names.take(6))
+            ActionChip(
+              label: Text(name),
+              avatar: const Icon(Icons.place_outlined, size: 16),
+              onPressed: () => onSelected(name),
+            ),
+        ],
+      ),
+    );
   }
 }
 

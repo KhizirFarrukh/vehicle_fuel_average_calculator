@@ -8,6 +8,7 @@ import '../../core/unit_formatter.dart';
 import '../../data/backup_service.dart';
 import '../../domain/fuel_calculator.dart';
 import '../../domain/service_planner.dart';
+import '../../domain/station_analyzer.dart';
 import '../../models/fuel_entry.dart';
 import '../../models/fuel_stats.dart';
 import '../../models/service_record.dart';
@@ -101,6 +102,7 @@ class VehicleDetailScreen extends StatelessWidget {
               units: units,
               alerts: garage.serviceAlertsFor(vehicleId),
               serviceCost: serviceCost,
+              entries: entries,
             ),
             _HistoryTab(
               vehicle: vehicle,
@@ -218,6 +220,7 @@ class _OverviewTab extends StatelessWidget {
     required this.units,
     required this.alerts,
     required this.serviceCost,
+    required this.entries,
   });
 
   final Vehicle vehicle;
@@ -225,6 +228,7 @@ class _OverviewTab extends StatelessWidget {
   final UnitFormatter units;
   final List<ServiceReminder> alerts;
   final double serviceCost;
+  final List<FuelEntry> entries;
 
   @override
   Widget build(BuildContext context) {
@@ -337,6 +341,7 @@ class _OverviewTab extends StatelessWidget {
           const SectionHeader('Best and worst stretches'),
           _BestWorstCard(stats: stats, units: units),
         ],
+        _StationsSection(entries: entries, units: units),
         const SectionHeader('Vehicle'),
         _VehicleDetailsCard(vehicle: vehicle, stats: stats, units: units),
       ],
@@ -477,6 +482,90 @@ class _HeadlineCard extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+/// Where the fuel gets bought, and roughly what it costs there (I22).
+class _StationsSection extends StatelessWidget {
+  const _StationsSection({required this.entries, required this.units});
+
+  final List<FuelEntry> entries;
+  final UnitFormatter units;
+
+  @override
+  Widget build(BuildContext context) {
+    final stations = StationAnalyzer.analyze(entries);
+    if (stations.isEmpty) return const SizedBox.shrink();
+
+    final theme = Theme.of(context);
+    final ranked = StationAnalyzer.cheapest(entries);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionHeader('Where you fill up'),
+        AppCard(
+          child: Column(
+            children: [
+              for (final station in stations.take(5))
+                DetailRow(
+                  label: '${station.name} · ${station.fills} '
+                      '${station.fills == 1 ? 'visit' : 'visits'}',
+                  value: units.pricePerVolume(station.averagePricePerLitre),
+                ),
+            ],
+          ),
+        ),
+        if (ranked.length >= 2) ...[
+          const SizedBox(height: 10),
+          AppCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.savings_outlined,
+                      size: 18,
+                      color: AppTheme.good(context),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Cheapest lately: ${ranked.first.name}',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.good(context),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '${units.pricePerVolume(ranked.first.averagePricePerLitre)} '
+                  'against ${units.pricePerVolume(ranked.last.averagePricePerLitre)} '
+                  'at ${ranked.last.name}, over the last '
+                  '${StationAnalyzer.defaultWindowDays} days.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Pump prices move over time, so this compares when you '
+                  'visited as much as where.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
