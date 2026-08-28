@@ -1,8 +1,13 @@
 # Fuel Log — Vehicle Fuel Average Calculator
 
-A Flutter app for tracking fuel economy, refuelling history and running cost
-across any number of vehicles. Everything is stored locally in SQLite; there is
-no account and no cloud.
+A Flutter app for tracking fuel economy, refuelling history, running cost and
+maintenance across any number of vehicles. Everything is stored locally in
+SQLite; there is no account and no cloud.
+
+> ⚠️ **This code has never been compiled or run.** It was written without a
+> Flutter SDK available. Run `flutter pub get && flutter analyze &&
+> flutter test` before trusting any of it. See
+> [docs/HANDOFF.md](docs/HANDOFF.md).
 
 ## Getting started
 
@@ -91,8 +96,23 @@ the arithmetic can be tested directly:
 flutter test test/fuel_calculator_test.dart
 ```
 
+## Documentation
+
+| Doc | What it is for |
+|---|---|
+| [CLAUDE.md](CLAUDE.md) | Rules and conventions for anyone — human or agent — working on this |
+| [docs/HANDOFF.md](docs/HANDOFF.md) | **Start here.** Current state and what to do next |
+| [docs/TODO.md](docs/TODO.md) | Prioritised tasks, including what is most likely broken |
+| [docs/PLAN.md](docs/PLAN.md) | The design document and full idea list |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Code map, layering, data flow |
+| [docs/DECISIONS.md](docs/DECISIONS.md) | Why things are the way they are |
+| [docs/SCHEMA.md](docs/SCHEMA.md) | Database schema and how to add a migration |
+| [docs/TESTING.md](docs/TESTING.md) | Coverage, and what was and was not verified |
+| [docs/DEVELOPMENT_LOG.md](docs/DEVELOPMENT_LOG.md) | Commit-by-commit history |
+| [docs/SESSION_CONTEXT.md](docs/SESSION_CONTEXT.md) | What was asked for, and judgement calls made |
+
 ## Roadmap
 
-Planned and deliberately deferred work — a maintenance log, vehicle comparison,
-CSV import, receipt photos, localisation — is listed in
-[docs/PLAN.md](docs/PLAN.md) §3.
+Deferred work — a home-screen widget, receipt photos, localisation — and why
+each is blocked, is in [docs/PLAN.md](docs/PLAN.md) §3 and
+[docs/TODO.md](docs/TODO.md) P4.
