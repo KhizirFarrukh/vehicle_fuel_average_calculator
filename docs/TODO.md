@@ -11,7 +11,7 @@ Nothing here has been executed. This is the whole job until it is done.
 - [ ] `flutter pub get` — the dependency set changed in this branch
       (`sqflite`, `sqflite_common_ffi`, `path`, `path_provider`, `provider`)
 - [ ] `flutter analyze` — fix what it reports
-- [ ] `flutter test` — 7 suites, none ever executed
+- [ ] `flutter test` — 9 suites, none ever executed
 - [ ] `flutter run` on one platform — confirm the app actually starts
 
 ### Check these constructs first
@@ -43,6 +43,11 @@ order of risk. Each was chosen deliberately but could not be verified.
       `service_planner.dart` and `service_tile.dart` — Dart 3 records. Fine on
       the declared SDK `^3.6.0`, but the first thing to blame if the parser
       complains.
+- [ ] **`num.clamp()` return type** — four call sites assign the result where a
+      `double` is wanted. Dart special-cases `clamp` to return `double` when the
+      receiver and both bounds are `double`, so these should be fine; if the
+      analyzer disagrees, add `.toDouble()`. Investigated and left alone
+      deliberately rather than churned on a guess.
 - [ ] **`strict-casts: true`** in `analysis_options.yaml` may surface implicit
       `dynamic` downcasts that were missed, most likely in
       `backup_service.dart` and `csv_import_service.dart` where JSON and CSV
@@ -51,7 +56,7 @@ order of risk. Each was chosen deliberately but could not be verified.
 - [ ] **`sqflite_common_ffi` on this machine** — `test/database_test.dart` and
       the migration test need the FFI backend to load a native SQLite library.
       If those suites fail for environmental reasons rather than logic, the
-      other six suites are pure Dart and still meaningful.
+      other eight suites are pure Dart and still meaningful.
 
 ---
 
@@ -96,7 +101,7 @@ Both were cut only to avoid unverifiable dependencies.
 
 ## P3 — Testing gaps
 
-- [ ] **No widget tests exist.** The seven suites cover pure logic and the
+- [ ] **No widget tests exist.** The nine suites cover pure logic and the
       database. Every screen is untested. Start with `entry_form_screen` — the
       volume/price/total cross-computation and the odometer validation are the
       highest-value targets.

@@ -216,6 +216,38 @@ See [SCHEMA.md](SCHEMA.md) for how to add the next migration.
 
 ---
 
+## D16 — A restore parses the whole payload before deleting anything
+
+Found in review, 19 September 2026, and the most serious bug the code has had.
+
+Replace-mode restore used to delete the garage and *then* parse each vehicle as
+it inserted it. The header checks (format id, version, `vehicles` is a list)
+only prove the file is shaped like one of ours — a truncated write, a disk error
+or a hand-edited field still gets through, and the `as String?` / `as num?`
+casts in the model parsers throw on the wrong type.
+
+So a *nearly* valid backup wiped the user's data and then failed partway. No
+transaction, no undo. The worst outcome the app can produce, from the one
+feature people use precisely when they cannot afford to lose anything.
+
+Now every row is parsed into models first, into `_ParsedVehicle` holders. Only
+once the entire payload is known readable does anything get deleted. A damaged
+file throws `FormatException` with the garage untouched.
+
+The parse loop catches broadly — `catch (error)`, not `on FormatException` —
+because the model parsers throw `TypeError`, and to the user "this file is
+damaged" is one problem with one answer.
+
+`test/database_test.dart` has the regression test: seed a garage, attempt a
+restore whose `make` is a number, assert the exception *and* that the vehicle
+and entry counts are unchanged.
+
+A transaction would be an alternative, but it would mean threading a
+`Transaction` through every DAO for one caller's benefit. Parsing first is
+simpler and needs nothing.
+
+---
+
 ## D13 — Backup format is versioned separately from the schema
 
 `BackupService.formatVersion` is 2, independent of `AppDatabase.schemaVersion`.
@@ -225,6 +257,28 @@ carries no service records.
 
 Vehicle ids are **remapped** on restore, so a merge can never collide with
 existing rows.
+
+---
+
+## D15 — Engine text is unit-free; the UI adds the units
+
+Found in review, 19 September 2026. The engine used to build its warnings with
+`km` hardcoded — *"Trip meter says 250 km but the odometer moved 400 km"* — and
+those are canonical values. A reader set to miles saw kilometre figures labelled
+`km`, inside a screen where everything else was miles.
+
+The engine cannot fix this itself: it is pure Dart by rule (D-layering) and has
+no business knowing display preferences.
+
+So `EntryIssue` now carries an `IssueKind` plus the raw canonical figures
+(`distanceKm`, `odometerKm`, `tripKm`), and its `message` is a complete but
+**unit-free** sentence. `lib/core/issue_text.dart` turns the two into a line in
+the reader's units; the unit-free `message` remains a safe fallback if a figure
+is missing.
+
+`test/issue_text_test.dart` asserts both halves, including that no message
+produced by a real `analyze()` run contains `km`. If you add an issue kind, add
+it there too.
 
 ---
 

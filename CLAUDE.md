@@ -51,10 +51,17 @@ Each has been violated by well-meaning refactors before, so check there before
 
 ### 1. `lib/domain/` imports nothing from Flutter
 
-`fuel_calculator.dart`, `service_planner.dart`, `station_analyzer.dart` and
-`lib/data/csv_import_service.dart` are pure Dart. They hold all the logic worth
-testing. Adding `package:flutter/...` to any of them breaks that, and the test
-suites with it.
+`fuel_calculator.dart`, `service_planner.dart` and `station_analyzer.dart` —
+along with `lib/data/csv_import_service.dart`, `lib/core/issue_text.dart` and
+the rest of `core/` except `theme.dart` — are pure Dart. They hold all the logic
+worth testing. Adding `package:flutter/...` to any of them breaks that, and the
+test suites with it.
+
+A consequence worth knowing: the engine cannot format units, because
+`UnitFormatter` is reachable but the engine stores canonical kilometres and has
+no idea what the reader wants. So `EntryIssue` carries an `IssueKind` and raw
+figures, and `core/issue_text.dart` builds the sentence. Do not put a unit name
+in engine text — see [docs/DECISIONS.md](docs/DECISIONS.md) §D15.
 
 ### 2. Storage is always canonical: **kilometres and litres**
 
@@ -120,7 +127,7 @@ lib/
   data/      SQLite schema + migrations, DAOs, backup, CSV import
   state/     ChangeNotifier controllers (provider)
   ui/        screens/ and widgets/
-test/        7 suites; see docs/TESTING.md
+test/        9 suites; see docs/TESTING.md
 docs/        everything below
 ```
 

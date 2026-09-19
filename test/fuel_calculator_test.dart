@@ -287,9 +287,18 @@ void main() {
       ]);
 
       expect(
-        stats.issuesFor(2).any((i) => i.message.contains('Trip meter')),
+        stats.issuesFor(2).any((i) => i.kind == IssueKind.tripMismatch),
         isTrue,
       );
+
+      // The engine's own sentence must not name a unit: it holds canonical
+      // kilometres and cannot know the reader wants miles. The figures travel
+      // as numbers for the UI to format.
+      final issue =
+          stats.issuesFor(2).firstWhere((i) => i.kind == IssueKind.tripMismatch);
+      expect(issue.message, isNot(contains('km')));
+      expect(issue.tripKm, 250);
+      expect(issue.distanceKm, 400);
     });
 
     test('a trip meter that agrees is not reported', () {
@@ -298,7 +307,7 @@ void main() {
         entry(id: 2, odometer: 1400, volume: 32, trip: 402),
       ]);
 
-      expect(stats.issuesFor(2).any((i) => i.message.contains('Trip meter')),
+      expect(stats.issuesFor(2).any((i) => i.kind == IssueKind.tripMismatch),
           isFalse);
     });
   });

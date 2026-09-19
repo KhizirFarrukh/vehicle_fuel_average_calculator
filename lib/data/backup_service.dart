@@ -37,6 +37,19 @@ class RestoreResult {
   final bool settingsRestored;
 }
 
+/// One vehicle's worth of a backup, parsed but not yet written.
+class _ParsedVehicle {
+  const _ParsedVehicle({
+    required this.vehicle,
+    required this.entries,
+    required this.services,
+  });
+
+  final Vehicle vehicle;
+  final List<FuelEntry> entries;
+  final List<ServiceRecord> services;
+}
+
 /// JSON backup/restore and CSV export (I14).
 ///
 /// No cloud, no account: the file lands in the app's documents directory and
@@ -249,6 +262,38 @@ class BackupService {
       throw const FormatException('The backup has no vehicles list.');
     }
 
+    // Parse the WHOLE payload before touching the database.
+    //
+    // The three checks above only prove the file is shaped like one of ours.
+    // A truncated write, a disk error or a hand-edited field still gets past
+    // them, and the `as String?` / `as num?` casts in the model parsers throw
+    // on the wrong type. Deleting first and parsing as we went meant a
+    // half-readable backup wiped the garage and then failed — the worst
+    // outcome the app can produce. Nothing is destroyed until every row here
+    // is known to be readable.
+    final parsed = <_ParsedVehicle>[];
+    try {
+      for (final raw in rawVehicles) {
+        if (raw is! Map) continue;
+        final map = Map<String, Object?>.from(raw);
+
+        parsed.add(_ParsedVehicle(
+          vehicle: Vehicle.fromMap(map),
+          entries: _parseList(map['entries'], FuelEntry.fromMap),
+          // Absent in v1 backups, which is not an error.
+          services: _parseList(map['services'], ServiceRecord.fromMap),
+        ));
+      }
+    } catch (error) {
+      // Deliberately broad: the model parsers throw TypeError, not
+      // FormatException, and to the user a file we cannot read is one
+      // problem with one answer.
+      throw FormatException(
+        'The backup could be read as JSON but some of its records are '
+        'damaged, so nothing was changed. ($error)',
+      );
+    }
+
     if (mode == RestoreMode.replace) {
       // Children first: the cascade would take them anyway, but being explicit
       // keeps this correct even if foreign keys are ever off.
@@ -261,41 +306,21 @@ class BackupService {
     var entriesAdded = 0;
     var servicesAdded = 0;
 
-    for (final raw in rawVehicles) {
-      if (raw is! Map) continue;
-      final map = Map<String, Object?>.from(raw);
-
-      final vehicle = Vehicle.fromMap(map);
-      final newId = await _vehicles.insert(vehicle);
+    for (final item in parsed) {
+      final newId = await _vehicles.insert(item.vehicle);
       vehiclesAdded++;
 
-      final rawEntries = map['entries'];
-      if (rawEntries is List) {
-        final entries = <FuelEntry>[];
-        for (final rawEntry in rawEntries) {
-          if (rawEntry is! Map) continue;
-          final entryMap = Map<String, Object?>.from(rawEntry);
-          // Re-point at the id the vehicle actually received.
-          entryMap['vehicle_id'] = newId;
-          entries.add(FuelEntry.fromMap(entryMap));
-        }
-        await _entries.insertMany(entries);
-        entriesAdded += entries.length;
-      }
+      // Re-point at the id the vehicle actually received, which is what makes
+      // a merge safe against existing rows.
+      await _entries.insertMany([
+        for (final entry in item.entries) entry.copyWith(vehicleId: newId),
+      ]);
+      entriesAdded += item.entries.length;
 
-      // Absent in v1 backups, which is not an error.
-      final rawServices = map['services'];
-      if (rawServices is List) {
-        final services = <ServiceRecord>[];
-        for (final rawService in rawServices) {
-          if (rawService is! Map) continue;
-          final serviceMap = Map<String, Object?>.from(rawService);
-          serviceMap['vehicle_id'] = newId;
-          services.add(ServiceRecord.fromMap(serviceMap));
-        }
-        await _services.insertMany(services);
-        servicesAdded += services.length;
-      }
+      await _services.insertMany([
+        for (final record in item.services) record.copyWith(vehicleId: newId),
+      ]);
+      servicesAdded += item.services.length;
     }
 
     var settingsRestored = false;
@@ -322,6 +347,22 @@ class BackupService {
       servicesAdded: servicesAdded,
       settingsRestored: settingsRestored,
     );
+  }
+
+  /// Parses a JSON array of rows with [fromMap], skipping anything that is not
+  /// an object. A null or non-list value yields an empty list, which is how a
+  /// v1 backup's missing `services` array is tolerated.
+  static List<T> _parseList<T>(
+    Object? raw,
+    T Function(Map<String, Object?>) fromMap,
+  ) {
+    // `<T>[]` not `const []`: a const expression cannot reference a type
+    // parameter, so the inferred form would be illegal here.
+    if (raw is! List) return <T>[];
+    return [
+      for (final row in raw)
+        if (row is Map) fromMap(Map<String, Object?>.from(row)),
+    ];
   }
 
   Future<RestoreResult> restoreFromFile(

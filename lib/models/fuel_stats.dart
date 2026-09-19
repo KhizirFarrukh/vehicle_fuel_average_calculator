@@ -7,16 +7,43 @@ enum IssueSeverity { info, warning, error }
 
 /// Something worth telling the user about a specific entry, found while
 /// analysing the log rather than while typing it in.
+/// What kind of problem an [EntryIssue] describes.
+///
+/// The UI switches on this to build a sentence in the reader's units. The
+/// engine cannot do that itself — it is pure Dart with no access to
+/// `UnitFormatter`, and it stores canonical kilometres.
+enum IssueKind {
+  missedFillUp,
+  windowTooShort,
+  duplicateOdometer,
+  dateOutOfOrder,
+  tripMismatch,
+}
+
 class EntryIssue {
   const EntryIssue({
     required this.entryId,
     required this.severity,
+    required this.kind,
     required this.message,
+    this.distanceKm,
+    this.odometerKm,
+    this.tripKm,
   });
 
   final int? entryId;
   final IssueSeverity severity;
+  final IssueKind kind;
+
+  /// A complete, unit-free sentence. Safe to show as-is, and used by tests and
+  /// `toString`. Where a measurement would help, the numbers below carry it and
+  /// the UI composes a richer line instead.
   final String message;
+
+  /// Canonical kilometres. Null when this kind of issue has no such figure.
+  final double? distanceKm;
+  final double? odometerKm;
+  final double? tripKm;
 
   @override
   String toString() => '[${severity.name}] $message';

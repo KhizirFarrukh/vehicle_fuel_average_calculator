@@ -1,7 +1,7 @@
 # Handoff — state of play
 
-**Last updated:** 25 August 2026
-**Branch:** `feature/multi-vehicle-fuel-tracking` (16 commits ahead of `main`)
+**Last updated:** 19 September 2026
+**Branch:** `feature/multi-vehicle-fuel-tracking` (18 commits ahead of `main`)
 **Working tree:** clean
 
 Read [../CLAUDE.md](../CLAUDE.md) first if you have not. This file says where
@@ -13,9 +13,9 @@ work stopped and what to do next.
 
 | | |
 |---|---|
-| Dart files | 47 (39 in `lib/`, 8 in `test/`) |
+| Dart files | 49 (40 in `lib/`, 9 in `test/`) |
 | Lines | ~12,500 |
-| Test suites | 7 |
+| Test suites | 9 |
 | Schema version | 2 |
 | Backup format version | 2 |
 | **Compiled?** | **No. Never.** |
@@ -125,6 +125,26 @@ easy to finish once the app builds.
    a file picker. → add `file_picker`.
    `BackupService.restoreFromFile()` already exists and is tested; only the
    picking UI is missing.
+
+---
+
+## Review pass, 19 September 2026
+
+Still no SDK, so the logic was read for bugs instead. Two real ones, both fixed
+with regression tests. Detail in [DEVELOPMENT_LOG.md](DEVELOPMENT_LOG.md)
+phase 4.
+
+1. **Replace-mode restore deleted the garage before parsing the backup** — a
+   nearly-valid file wiped everything and then threw, with no undo. Now the
+   whole payload is parsed before anything is deleted. [DECISIONS §D16](DECISIONS.md)
+2. **Engine warnings hardcoded `km`** around canonical values, so a miles reader
+   saw kilometre numbers labelled `km`. Issues now carry structured figures that
+   the UI formats. [DECISIONS §D15](DECISIONS.md)
+
+This is worth knowing for two reasons. It shows the mechanical checks genuinely
+do not catch logic errors — so the remaining ~12,700 unrun lines should be
+assumed to hold more of the same. And the restore bug is the kind that only
+surfaces when someone is already in trouble, which is the worst time to find it.
 
 ---
 

@@ -144,6 +144,7 @@ class FuelCalculator {
           issues.add(EntryIssue(
             entryId: entry.id,
             severity: IssueSeverity.info,
+            kind: IssueKind.missedFillUp,
             message: 'Marked as a missed fill-up, so no average is calculated '
                 'for the stretch leading up to it.',
           ));
@@ -172,9 +173,10 @@ class FuelCalculator {
         issues.add(EntryIssue(
           entryId: entry.id,
           severity: IssueSeverity.warning,
-          message: 'Odometer has barely moved since the last full tank '
-              '(${distance.toStringAsFixed(1)} km), so no average could be '
-              'calculated. Check the odometer reading.',
+          kind: IssueKind.windowTooShort,
+          distanceKm: distance,
+          message: 'The odometer has barely moved since the last full tank, '
+              'so no average could be calculated. Check the reading.',
         ));
         reset(entry);
         continue;
@@ -243,8 +245,9 @@ class FuelCalculator {
         issues.add(EntryIssue(
           entryId: current.id,
           severity: IssueSeverity.warning,
-          message: 'Two entries share the odometer reading '
-              '${current.odometer.toStringAsFixed(0)} km.',
+          kind: IssueKind.duplicateOdometer,
+          odometerKm: current.odometer,
+          message: 'Two entries share this odometer reading.',
         ));
         continue;
       }
@@ -255,6 +258,7 @@ class FuelCalculator {
         issues.add(EntryIssue(
           entryId: current.id,
           severity: IssueSeverity.warning,
+          kind: IssueKind.dateOutOfOrder,
           message: 'This entry has a higher odometer reading but an earlier '
               'date than the one before it. Check the date.',
         ));
@@ -279,9 +283,11 @@ class FuelCalculator {
         issues.add(EntryIssue(
           entryId: point.entry.id,
           severity: IssueSeverity.info,
-          message: 'Trip meter says ${trip.toStringAsFixed(0)} km but the '
-              'odometer moved ${point.distanceKm.toStringAsFixed(0)} km since '
-              'the last full tank.',
+          kind: IssueKind.tripMismatch,
+          tripKm: trip,
+          distanceKm: point.distanceKm,
+          message: 'The trip meter and the odometer disagree about how far '
+              'this tank went.',
         ));
       }
     }

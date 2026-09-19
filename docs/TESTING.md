@@ -6,7 +6,7 @@
 
 ## Status: nothing has ever been executed
 
-The test suites below were written but **never run**. The environment had no
+The nine suites below were written but **never run**. The environment had no
 Flutter or Dart SDK. Treat them as unverified specifications of intent, not as
 passing tests.
 
@@ -86,6 +86,11 @@ Overdue / due-soon / upcoming thresholds; whichever limit is worse deciding the
 status; due-today counting as overdue; distance reminders skipped when the
 odometer is unknown; urgency ordering; cost totals; suggested next-due.
 
+### `issue_text_test.dart`
+Unit-aware rendering of every `IssueKind`; fallback when a figure is missing;
+and a guard that no message produced by a real `analyze()` run contains `km`,
+which is the regression that motivated it (DECISIONS §D15).
+
 ### `station_analyzer_test.dart`
 Case/whitespace-insensitive station grouping; per-station totals; recency
 ordering for suggestions; the windowed cheapest ranking and its refusals
@@ -113,10 +118,12 @@ that proves the SQL parses.**
   `:memory:`, because each in-memory open is a new database
 - Backup: export→restore round-trip, merge with id remapping, service records
   surviving, v1 backups still restoring, rejection of foreign/newer payloads
+- **A damaged backup leaves the garage untouched** — the D16 regression: replace
+  mode must not delete before the whole payload parses
 - CSV export: header, row count, comma quoting
 
 If this suite fails for environmental reasons (no native SQLite for FFI), the
-other six are pure Dart and still meaningful.
+other eight are pure Dart and still meaningful.
 
 ---
 

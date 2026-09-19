@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/formatters.dart';
+import '../../core/issue_text.dart';
 import '../../core/theme.dart';
 import '../../core/unit_formatter.dart';
 import '../../models/fuel_entry.dart';
@@ -160,7 +161,7 @@ class EntryTile extends StatelessWidget {
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        issue.message,
+                        describeIssue(issue, units),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: issue.severity == IssueSeverity.info
                               ? theme.colorScheme.onSurfaceVariant

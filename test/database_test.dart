@@ -450,6 +450,31 @@ void main() {
       expect(await vehicles.count(), 1);
     });
 
+    test('a damaged backup leaves the existing garage untouched', () async {
+      await seed();
+      final before = await vehicles.count(includeArchived: true);
+      final entriesBefore = (await entries.getAll()).length;
+      expect(before, 2);
+      expect(entriesBefore, 2);
+
+      // Shaped like one of ours and valid JSON, so it gets past the header
+      // checks — but `make` is a number, which the model parser cannot cast.
+      // A truncated write or a hand-edited field looks exactly like this.
+      final damaged = '{"format": "${BackupService.formatId}", "version": 2, '
+          '"vehicles": [{"make": 12345, "model": "Corolla", '
+          '"variant": "Altis", "created_at": 0, "updated_at": 0}]}';
+
+      await expectLater(
+        () => backup.restoreFromJson(damaged),
+        throwsA(isA<FormatException>()),
+      );
+
+      // The whole point: replace mode must not have deleted anything, because
+      // the payload was never fully readable.
+      expect(await vehicles.count(includeArchived: true), before);
+      expect((await entries.getAll()).length, entriesBefore);
+    });
+
     test('a foreign JSON file is rejected with a readable message', () async {
       expect(
         () => backup.restoreFromJson('{"hello": "world"}'),

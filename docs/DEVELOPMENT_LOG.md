@@ -1,7 +1,8 @@
 # Development log
 
-Chronological record of how the branch was built. All of it is one session,
-25 August 2026, on `feature/multi-vehicle-fuel-tracking`.
+Chronological record of how the branch was built, on
+`feature/multi-vehicle-fuel-tracking`: phases 1–3 on 25 August 2026, the review
+pass on 19 September 2026.
 
 Commit subjects use the phase number (`P0`–`P13`) or the idea number
 (`I19`–`I23`) from [PLAN.md](PLAN.md).
@@ -64,12 +65,33 @@ This set of files, so the work survives losing the chat.
 
 ---
 
+## Phase 4 — correctness review (19 September 2026)
+
+Still no Flutter SDK, so instead of mechanical checks (which had all passed) the
+logic itself was read for bugs. Two real ones, both fixed with regression tests.
+
+| Finding | Severity |
+|---|---|
+| **Replace-mode restore deleted the garage before parsing the backup.** A file that passed the header checks but had one wrong-typed field wiped everything and then threw. No transaction, no undo. Now the whole payload is parsed into models first; nothing is deleted until it is known readable. [DECISIONS §D16](DECISIONS.md) | **Severe — data loss** |
+| **Engine warnings hardcoded `km`** around canonical values, so a miles reader saw kilometre figures labelled `km`. `EntryIssue` now carries an `IssueKind` and raw figures; `core/issue_text.dart` renders them in the reader's units. [DECISIONS §D15](DECISIONS.md) | Cosmetic but wrong |
+
+One suspected bug was investigated and dismissed rather than "fixed":
+`num.clamp()` looks like it returns `num`, which would break four call sites —
+but Dart special-cases `clamp`, giving `double` when the receiver and both
+bounds are `double`. All four were already correct. Left alone; noted in
+[TODO.md](TODO.md) as a thing the analyzer will settle either way.
+
+Added `test/issue_text_test.dart` (ninth suite) and a regression test for the
+restore bug in `database_test.dart`.
+
+---
+
 ## Running totals
 
 | | After P13 | Now |
 |---|---|---|
 | Files in `lib/` | 30 | 39 |
-| Test suites | 5 | 8 |
+| Test suites | 5 | 9 |
 | Lines | ~8,000 | ~12,500 |
 | Schema version | 1 | 2 |
 | Backup format | 1 | 2 |
