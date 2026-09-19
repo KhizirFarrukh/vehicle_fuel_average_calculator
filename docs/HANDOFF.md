@@ -7,6 +7,9 @@
 Read [../CLAUDE.md](../CLAUDE.md) first if you have not. This file says where
 work stopped and what to do next.
 
+For *how* it got here — turn by turn, including what was rejected and why — see
+[archive/SESSION-01-rebuild.md](archive/SESSION-01-rebuild.md).
+
 ---
 
 ## Where things stand

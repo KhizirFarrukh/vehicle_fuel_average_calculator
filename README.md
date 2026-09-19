@@ -79,18 +79,19 @@ stretch more than 40 % away from the median.
 
 ```
 lib/
-  core/      units, formatting, validation, theme
-  models/    Vehicle, FuelEntry, statistics, settings
-  domain/    fuel_calculator.dart — the economy engine (pure Dart)
-  data/      SQLite schema, DAOs, backup/CSV
+  core/      units, formatting, validation, theme, issue text
+  models/    Vehicle, FuelEntry, ServiceRecord, statistics, settings
+  domain/    the engines — economy, service reminders, stations (pure Dart)
+  data/      SQLite schema + migrations, DAOs, backup, CSV import
   state/     ChangeNotifier controllers
   ui/        screens and widgets
-test/        unit tests, including an in-memory database suite
-docs/PLAN.md the full design document and roadmap
+test/        9 suites, including an in-memory database suite
+docs/        design document, decisions, schema, handoff, archive
 ```
 
-The engine in `lib/domain/fuel_calculator.dart` imports nothing from Flutter, so
-the arithmetic can be tested directly:
+Nothing in `lib/domain/` imports Flutter — nor do `core/` (except `theme.dart`)
+or `data/csv_import_service.dart`. All the logic worth testing lives there, so
+it can be tested directly:
 
 ```bash
 flutter test test/fuel_calculator_test.dart
@@ -110,6 +111,7 @@ flutter test test/fuel_calculator_test.dart
 | [docs/TESTING.md](docs/TESTING.md) | Coverage, and what was and was not verified |
 | [docs/DEVELOPMENT_LOG.md](docs/DEVELOPMENT_LOG.md) | Commit-by-commit history |
 | [docs/SESSION_CONTEXT.md](docs/SESSION_CONTEXT.md) | What was asked for, and judgement calls made |
+| [docs/archive/](docs/archive/) | Turn-by-turn records of the sessions that built this |
 
 ## Roadmap
 

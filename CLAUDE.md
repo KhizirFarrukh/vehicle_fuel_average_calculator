@@ -142,6 +142,7 @@ docs/        everything below
 | [TESTING.md](docs/TESTING.md) | What is covered, what was verified, what was not |
 | [DEVELOPMENT_LOG.md](docs/DEVELOPMENT_LOG.md) | Commit-by-commit history |
 | [SESSION_CONTEXT.md](docs/SESSION_CONTEXT.md) | What the user asked for, verbatim intent |
+| [archive/](docs/archive/) | Turn-by-turn records of the sessions that built this |
 
 ---
 
